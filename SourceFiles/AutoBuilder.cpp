@@ -9,6 +9,7 @@
 #include <shlobj.h>
 #include<filesystem>
 #include <commdlg.h>
+#include <thread>
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "comdlg32.lib")
 #define MAX_LOADSTRING 100
@@ -17,6 +18,7 @@
 HINSTANCE hInst;                                // текущий экземпляр
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
+bool isBuilding = false;                        // Собирается ли проект в данный момент
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -133,7 +135,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DialogBox(hInst, MAKEINTRESOURCE(IDD_KEYSTORE_DIALOG), hWnd, KeystoreDialog);
             break;
         case IDM_BUILD_CORDOVA:
-            DialogBox(hInst, MAKEINTRESOURCE(IDD_CORDOVA_DIALOG), hWnd, CordovaDialog);
+            if (isBuilding == false) {
+                DialogBox(hInst, MAKEINTRESOURCE(IDD_CORDOVA_DIALOG), hWnd, CordovaDialog);
+            }
+            else {
+                MessageBox(hWnd, L"Дождитесь окончания предыдущей сборки.", L"Подождите.", MB_ICONINFORMATION);
+            }
             break;
         case IDM_EXIT:
             DestroyWindow(hWnd);
@@ -385,6 +392,8 @@ INT_PTR CALLBACK CordovaDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
         }
         else if (LOWORD(wParam) == IDOK)
         {
+            // Сборка
+
             // Получаем введенные значения
             wchar_t projectPath[MAX_PATH];
             wchar_t file[6];
@@ -414,11 +423,11 @@ INT_PTR CALLBACK CordovaDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             // Для Android проверяем параметры keystore
             //if (wcscmp(platform, L"android") == 0)
             //{
-                if (wcslen(keystorePath) == 0 || wcslen(keystorePassword) == 0 || wcslen(keystoreAlias) == 0)
-                {
-                    MessageBox(hDlg, L"Для Android необходимо указать путь к Keystore, пароль и alias!", L"Ошибка", MB_ICONERROR);
-                    return (INT_PTR)TRUE;
-                }
+            if (wcslen(keystorePath) == 0 || wcslen(keystorePassword) == 0 || wcslen(keystoreAlias) == 0)
+            {
+                MessageBox(hDlg, L"Для Android необходимо указать путь к Keystore, пароль и alias!", L"Ошибка", MB_ICONERROR);
+                return (INT_PTR)TRUE;
+            }
             //}
 
             // Конвертируем в UTF-8 для командной строки
@@ -434,8 +443,8 @@ INT_PTR CALLBACK CordovaDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             WideCharToMultiByte(CP_UTF8, 0, keystorePath, -1, keystorePathA, MAX_PATH, NULL, NULL);
             WideCharToMultiByte(CP_UTF8, 0, keystorePassword, -1, keystorePasswordA, 256, NULL, NULL);
             WideCharToMultiByte(CP_UTF8, 0, keystoreAlias, -1, keystoreAliasA, 256, NULL, NULL);
-            
-            
+
+
             // Формируем команды для сборки
             std::string commands;
             commands += "cd /d \"" + std::string(projectPathA) + "\" & ";
@@ -445,38 +454,44 @@ INT_PTR CALLBACK CordovaDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lP
             //if (strcmp(fileA, "bundle") == 0)
             //{
                 // Для Android добавляем параметры подписи
-                commands += "cordova build android --release \"--\" --keystore=\"" + std::string(keystorePathA) + "\""+ " --storePassword=\"" + std::string(keystorePasswordA) + "\" --alias=" + std::string(keystoreAliasA) + " --password=\"" + std::string(keystorePasswordA)+"\" --packageType=" +std::string(fileA);
-                //Отладку: commands += "cordova build android --release --keystore=\"C:\\Users\\miros\\source\\repos\\AutoBuilder\\keystore.keystore\" --storePassword=111111 --password=111111 --alias=A";
-            //}
-            //else
-            //{
-                // Для iOS обычная сборка
-            //    commands += "cordova build ios --release";
-            //}
+            commands += "cordova build android --release \"--\" --keystore=\"" + std::string(keystorePathA) + "\"" + " --storePassword=\"" + std::string(keystorePasswordA) + "\" --alias=" + std::string(keystoreAliasA) + " --password=\"" + std::string(keystorePasswordA) + "\" --packageType=" + std::string(fileA);
+            //Отладку: commands += "cordova build android --release --keystore=\"C:\\Users\\miros\\source\\repos\\AutoBuilder\\keystore.keystore\" --storePassword=111111 --password=111111 --alias=A";
+        //}
+        //else
+        //{
+            // Для iOS обычная сборка
+        //    commands += "cordova build ios --release";
+        //}
 
 
-            /*
-            // Отладка
-            int cmdSize = MultiByteToWideChar(CP_UTF8, 0, commands.c_str(), -1, NULL, 0);
-            wchar_t* wcmd = new wchar_t[cmdSize];
-            MultiByteToWideChar(CP_UTF8, 0, commands.c_str(), -1, wcmd, cmdSize);
-            MessageBox(hDlg, wcmd, L"Выполняемая команда", MB_ICONINFORMATION | MB_OK);
-            delete[] wcmd;
-            */
-
-            // Выполняем команды
-            int result = system(commands.c_str());
+        /*
+        // Отладка
+        int cmdSize = MultiByteToWideChar(CP_UTF8, 0, commands.c_str(), -1, NULL, 0);
+        wchar_t* wcmd = new wchar_t[cmdSize];
+        MultiByteToWideChar(CP_UTF8, 0, commands.c_str(), -1, wcmd, cmdSize);
+        MessageBox(hDlg, wcmd, L"Выполняемая команда", MB_ICONINFORMATION | MB_OK);
+        delete[] wcmd;
+        */
             
-            if (result == 0)
-            {
-                MessageBox(hDlg, L"Проект успешно собран!", L"Успех", MB_ICONINFORMATION);
-            }
-            else
-            {
-                MessageBox(hDlg, L"Ошибка при сборке проекта! Убедитесь, что Cordova (Jks) установлена и доступна в PATH. Если это не помогло, перезагрузите компьютер и/или напишите разработчику.", L"Ошибка", MB_ICONERROR);
-            }
-
+        // Выполняем команды
             EndDialog(hDlg, LOWORD(wParam));
+            isBuilding = true;
+
+            std::thread t(([&] {
+                
+                int result = system(commands.c_str());
+
+                if (result == 0)
+                {
+                    MessageBox(NULL, L"Проект успешно собран!", L"Успех", MB_ICONINFORMATION);
+                }
+                else
+                {
+                    MessageBox(NULL, L"Ошибка при сборке проекта! Убедитесь, что Cordova (Jks) установлена и доступна в PATH. Если это не помогло, перезагрузите компьютер и/или напишите разработчику.", L"Ошибка", MB_ICONERROR);
+                }
+                isBuilding = false;
+            }));
+            t.detach();
             return (INT_PTR)TRUE;
         }
         else if (LOWORD(wParam) == IDCANCEL)
