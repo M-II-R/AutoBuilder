@@ -1,0 +1,11 @@
+NO_DATA=Не хватает данных.
+NO_DATA_TEXT=Не хватает данных: 
+INCORRECT_PATH=Неправильный путь.
+INC_PATH=Указан некорректный путь.
+JAVA_HOME=папка Java
+ANDROID_HOME=папка Android
+CORDOVA=папка Cordova
+PLATFORMS=платформы для сборки
+KSPATH=файл ключа приложения
+KSALIAS=псевдоним ключа приложения
+KSPASSWORD=пароль ключа приложения
